@@ -25,7 +25,7 @@ def load_glove_embeddings(vocab, embedding_filename):
   return embeddings
 
 def load_messages(datafile):
-  return [('shikib', 'im gay'), ('kevin', 'same')]
+  return [('shikib', 'im bored'), ('kevin', 'same')]
 
 def encode_messages(msgs):
   encoded_msgs = []
@@ -36,6 +36,9 @@ def encode_messages(msgs):
       if word in vocab:
         encoded_msg.append(vocab[word])
       else:
-        # TODO ???
+        # Append <UNK>
+        encoded_msg.append(0)
+
     encoded_msgs.append((sender, encoded_msg))
+
   return encoded_msgs

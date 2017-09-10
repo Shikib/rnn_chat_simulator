@@ -1,6 +1,7 @@
 """
 File for greedy decoding using the Attention Seq2Seq model.
 """
+import data
 import preprocessing
 
 USE_CUDA = True
@@ -10,14 +11,21 @@ def predict(sequence, encoder, decoder, max_length):
   Given the input sentence and the maximum length of the output, 
   generate and return the output sentence.
   """
+
+  # Set train to False to eliminate dropout (not necessary right now but 
+  # might as well).
   encoder.train(False)
   decoder.train(False)
 
+
+  # Create input batch
   input_batch = Variable(torch.LongTensor([sequence]), volatile=True).transpose(0, 1) 
 
+  # Run through encoder
   encoder_hidden = encoder.init_hidden()
   encoder_outputs, encoder_hidden = encoder(input_batch, [len(sequence)])
 
+  # Create decoder output
   decoder_input = Variable(torch.LongTensor([[data.start_token_index]])
   decoder_hidden = Variable(torch.zeros(1, decoder.hidden_size))
 
@@ -47,5 +55,10 @@ def predict(sequence, encoder, decoder, max_length):
     decoder_input = Variable(torch.LongTensor([[word_index]]))
     if USE_CUDA:
       decoder_input = decoder_input.cuda()
+
+  # Set train to True to go back to training (not necessary right now but 
+  # might as well).
+  encoder.train(True)
+  decoder.train(True)
 
   return decoded_words

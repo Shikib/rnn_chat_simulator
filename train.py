@@ -1,30 +1,36 @@
-import torch
 import data
-
+import torch
 
 def train(
-    input_batches,
-    input_lengths,
-    target_batches,
-    target_lengths,
-    encoder,
-    decoder,
-    encoder_optimizer,
-    decoder_optimizer,
-    criterion,
-    max_length=MAX_LENGTH,
-    grad_clip=5.0
-  ):
+  input_batches,
+  input_lengths,
+  target_batches,
+  target_lengths,
+  encoder,
+  decoder,
+  encoder_optimizer,
+  decoder_optimizer,
+  criterion,
+  max_length=MAX_LENGTH,
+  grad_clip=5.0,
+):
+  """
+  Training function
+  """
   # Zero gradients of both optimizers
   encoder_optimizer.zero_grad()
   decoder_optimizer.zero_grad()
-  loss = 0 # Added onto for each word
+
+  # Initialize loss
+  loss = 0 
 
   # Run words through encoder
   encoder_outputs, encoder_hidden = encoder(input_batches, input_lengths, None)
   
   # Prepare input and output variables
-  decoder_input = Variable(torch.LongTensor([SOS_token] * batch_size))
+  decoder_input = Variable(torch.LongTensor([data.start_token_index] * batch_size))
+
+  # TODO: This seems wrong?
   decoder_hidden = encoder_hidden[:decoder.n_layers] # Use last (forward) hidden state from encoder
 
   max_target_length = max(target_lengths)
@@ -43,8 +49,8 @@ def train(
 
     all_decoder_outputs[t] = decoder_output
 
-    # TODO: what happened to teacher forcing?
-    decoder_input = target_batches[t] # Next input is current target
+    # Teacher force by setting the next input to be target for current timestep.
+    decoder_input = target_batches[t] 
 
   # Loss calculation and backpropagation
   loss = data.masked_cross_entropy(

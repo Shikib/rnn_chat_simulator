@@ -3,11 +3,20 @@ import random
 from torch.nn import functional
 from torch.autograd import Variable
 
+USE_CUDA = True
+
 def pad_seq(seq, max_length):
+  """
+  Pad sequence to maximum length.
+  """
   seq += [preprocessing.PAD_TOKEN for i in range(max_length - len(seq))]
   return seq
 
 def random_batch(all_messages, context_length, batch_size, user_filter=None):
+  """
+  Given all messages, context length, batch size and an optional user filter: return
+  a random batch.
+  """
   input_seqs = []
   target_seqs = []
 
