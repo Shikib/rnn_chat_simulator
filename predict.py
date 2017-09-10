@@ -5,16 +5,18 @@ import preprocessing
 
 USE_CUDA = True
 
-def predict(encoder, decoder, sentence, max_length):
+def predict(sequence, encoder, decoder, max_length):
   """
   Given the input sentence and the maximum length of the output, 
   generate and return the output sentence.
   """
-  input_variable = preprocessing.create_variable(sentence)
-  input_length = input_variable.size()[0]
+  encoder.train(False)
+  decoder.train(False)
+
+  input_batch = Variable(torch.LongTensor([sequence]), volatile=True).transpose(0, 1) 
 
   encoder_hidden = encoder.init_hidden()
-  encoder_outputs, encoder_hidden = encoder(input_variable, encoder_hidden)
+  encoder_outputs, encoder_hidden = encoder(input_batch, [len(sequence)])
 
   decoder_input = Variable(torch.LongTensor([[data.start_token_index]])
   decoder_hidden = Variable(torch.zeros(1, decoder.hidden_size))
@@ -36,11 +38,10 @@ def predict(encoder, decoder, sentence, max_length):
     # Select top word
     _, top_word = decoder.output.data.topk(1)
     word_index = top_word[0][0]
-    if word_index = data.end_token_index:
-      decoded_words.append(data.end_token)
+    decoded_words.append(word_index)
+
+    if word_index == preprocessing.end_token_index:
       break
-    else:
-      decoded_words.append(data.index2word[word_index])
 
     # Set selected word as being next input
     decoder_input = Variable(torch.LongTensor([[word_index]]))
