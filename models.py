@@ -2,6 +2,8 @@
 File which contains model definitions.
 """
 
+USE_CUDA = True
+
 class Encoder(nn.Module):
   def __init__(
     self,
@@ -72,6 +74,12 @@ class Encoder(nn.Module):
     del self.embedding.weight
     self.embedding.weight = nn.Parameter(embedding_weights)
 
+  def init_hidden(self):
+    hidden = Variable(torch.zeros(self.n_layers, 1, self.hidden_size))
+    if USE_CUDA: 
+      hidden = hidden.cuda()
+
+    return hidden
 
 class Decoder(nn.Module):
   def __init__(
@@ -140,3 +148,21 @@ class Decoder(nn.Module):
 
     # Return softmax output and RNN hidden state 
     return output, hidden
+
+  def init_weights(self):
+    """
+    Initialize weights for RNN/embedding.
+    """
+    # Common initialization strategy
+    init.orthogonal(self.rnn.weight_ih_l0)
+    init.uniform(self.rnn.weight_hh_l0, a=-0.01, b=0.01)
+
+    # Pre-trained embeddings
+    pretrained_embeddings = preprocessing.load_embeddings()
+    embedding_weights = torch.FloatTensor(self.vocab_size, self.input_size)
+    init.uniform(embedding_weights, a=-0.25, b=0.25)
+    for k,v in pretrained_embeddings.items():
+      embedding_weights[k] = torch.FloatTensor(v)
+    embedding_weights[0] = torch.FloatTensor([0]*self.input_size)
+    del self.embedding.weight
+    self.embedding.weight = nn.Parameter(embedding_weights)
