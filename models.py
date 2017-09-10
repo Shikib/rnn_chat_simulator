@@ -10,7 +10,6 @@ class Encoder(nn.Module):
     vocab_size,
     num_layers=1,
     dropout=0,
-    bidirectional=True,
     rnn_type='gru',
   ):
     """
@@ -18,10 +17,9 @@ class Encoder(nn.Module):
     """
     super(Encoder, self).__init__()
 
-    self.num_directions = 2 if bidirectional else 1
     self.vocab_size = vocab_size
     self.input_size = input_size
-    self.hidden_size = hidden_size // self.num_directions
+    self.hidden_size = hidden_size 
     self.num_layers = num_layers
     self.rnn_type = rnn_type
 
@@ -33,18 +31,16 @@ class Encoder(nn.Module):
         self.hidden_size,
         num_layers=num_layers,
         dropout=dropout,
-        bidirectional=bidirectional,
-        batch_first=True,
-      ).cuda()
+        bidirectional=False,
+      )
     else:
       self.rnn = nn.LSTM(
         input_size,
         self.hidden_size,
         num_layers=num_layers,
         dropout=dropout,
-        bidirectional=bidirectional,
-        batch_first=True,
-      ).cuda()
+        bidirectional=False,
+      )
 
     self.init_weights()
 
@@ -77,9 +73,70 @@ class Encoder(nn.Module):
     self.embedding.weight = nn.Parameter(embedding_weights)
 
 
-class EncoderRNN(nn.Module):
-  def __init__(self, vocab_size, input_size, hidden_size, num_layers=1):
+class Decoder(nn.Module):
+  def __init__(
+    self,
+    input_size,
+    hidden_size,
+    vocab_size,
+    num_layers=1,
+    dropout=0,
+    rnn_type='gru',
+  ):
     """
     Initialize the model.
     """
+    super(Decoder, self).__init__()
 
+    self.vocab_size = vocab_size
+    self.input_size = input_size
+    self.hidden_size = hidden_size 
+    self.num_layers = num_layers
+    self.rnn_type = rnn_type
+
+    # Define layers
+    self.embedding = nn.Embedding(vocab_size, input_size, sparse=False, padding_idx=0)
+    self.attn = GeneralAttn(hidden_size)
+    if rnn_type == 'gru':
+      self.rnn = nn.GRU(
+        input_size,
+        self.hidden_size,
+        num_layers=num_layers,
+        dropout=dropout,
+        bidirectional=bidirectional,
+      )
+    else:
+      self.rnn = nn.LSTM(
+        input_size,
+        self.hidden_size,
+        num_layers=num_layers,
+        dropout=dropout,
+        bidirectional=bidirectional,
+      )
+    self.out = nn.Linear(hidden_size, output_size)
+
+    self.init_weights()
+
+  def forward(self, last_output, last_hidden, encoder_outputs):
+    """
+    Run RNN decoder on one timestep, to generate one output word.
+    """
+    # Embed last output word
+    embedded_word = self.embedding(last_output).view(1, 1, -1)
+     
+    # Calculate attention weights based on last_hidden 
+    attn_weights = self.attn(last_hidden[-1], encoder_outputs)
+
+    # Apply attention weights to encoder outputs
+    context = attn_weights.bmm(encoder_outputs.transpose(0, 1))
+
+    # Concatenate last output word with attended context and run through RNN
+    rnn_input = torch.cat((embedded_word, context), 2)
+    output, hidden = self.rnn(rnn_input, last_hidden)
+
+    # Run through softmax layer
+    output = output.squeeze(0)
+    output = F.log_softmax(self.out(torch.cat((output, context), 1)))
+
+    # Return softmax output and RNN hidden state 
+    return output, hidden
