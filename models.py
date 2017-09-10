@@ -3,71 +3,86 @@ File which contains model definitions.
 """
 
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.nn.init
 import preprocessing
 
 USE_CUDA = True
 
-def load_embedding(embedding_dict):
+def load_embedding(embedding_dict, vocab_size, input_size):
+  """
+  Load the embeddings. 
+  """
   embedding = nn.Embedding(vocab_size, input_size, sparse=False, padding_idx=0)
-  embedding_weights = torch.FloatTensor(self.vocab_size, self.input_size)
+  embedding_weights = torch.FloatTensor(vocab_size, input_size)
   torch.nn.init.uniform(embedding_weights, a=-0.25, b=0.25)
-  for k, v in embedding_dict.items():
+  for k,v in embedding_dict.items():
     embedding_weights[k] = torch.FloatTensor(v)
-  # TODO embeddings for special tokens (EOS, ...)
+
   del embedding.weight
   embedding.weight = nn.Parameter(embedding_weights)
 
   return embedding
 
-class Attn(nn.Module):
+class Attention(nn.Module):
   def __init__(self, method, hidden_size):
-    super(Attn, self).__init__()
+    """
+    Initialize the attention mechanism.
+    """
+    super(Attention, self).__init__()
     
     self.method = method
     self.hidden_size = hidden_size
     
+    # Two different types of attention based on Luong et al. (arXiv:1508.04025)
     if self.method == 'general':
-      self.attn = nn.Linear(self.hidden_size, hidden_size)
-
+      # score(h_t, h_s) = h_t^T W_a h_s
+      # self.attn is W_a (hidden_size -> hidden_size mapping)
+      self.attn = nn.Linear(self.hidden_size, self.hidden_size)
     elif self.method == 'concat':
+      # score(h_t, h_s) = v_t^T W_a [ h_t ; h_s ]
+      # self.attn is W_a (2*hidden_size -> hidden_size mapping)
       self.attn = nn.Linear(self.hidden_size * 2, hidden_size)
+      # self.v is v_t (hidden_size -> 1 mapping)
       self.v = nn.Parameter(torch.FloatTensor(1, hidden_size))
 
   def forward(self, hidden, encoder_outputs):
+    """
+    Given the previous decoder hidden state and the encoder hidden states, output
+    the attention weights.
+    """
     max_len = encoder_outputs.size(0)
-    this_batch_size = encoder_outputs.size(1)
+    batch_size = encoder_outputs.size(1)
 
-    # Create variable to store attention energies
+    # Attention energies.
     attn_energies = Variable(torch.zeros(this_batch_size, max_len)) # B x S
 
     if USE_CUDA:
       attn_energies = attn_energies.cuda()
 
-    # For each batch of encoder outputs
-    for b in range(this_batch_size):
-      # Calculate energy for each encoder output
+    # Iterate over each batch and each encoder output to construct scores.
+    for b in range(batch_size):
       for i in range(max_len):
-        attn_energies[b, i] = self.score(hidden[:, b], encoder_outputs[i, b].unsqueeze(0))
+        attn_energies[b,i] = self.score(hidden[:,b], encoder_outputs[i,b].unsqueeze(0))
 
     # Normalize energies to weights in range 0 to 1, resize to 1 x B x S
     return F.softmax(attn_energies).unsqueeze(1)
   
   def score(self, hidden, encoder_output):
-    
+    """
+    Determine the weight of the encoder output given the decoder hidden state.
+    """
+    # Three different types of attention based on Luong et al. (arXiv:1508.04025)
     if self.method == 'dot':
       energy = hidden.dot(encoder_output)
-      return energy
-    
     elif self.method == 'general':
       energy = self.attn(encoder_output)
       energy = hidden.dot(energy)
-      return energy
-    
     elif self.method == 'concat':
       energy = self.attn(torch.cat((hidden, encoder_output), 1))
       energy = self.v.dot(energy)
-      return energy
+
+    return energy
 
 class Encoder(nn.Module):
   def __init__(
@@ -91,7 +106,9 @@ class Encoder(nn.Module):
     self.num_layers = num_layers
     self.rnn_type = rnn_type
 
-    self.embedding = load_embedding(embedding_dict)
+    self.embedding = load_embedding(embedding_dict, 
+                                    self.vocab_size, 
+                                    self.input_size)
 
     if rnn_type == 'gru':
       self.rnn = nn.GRU(
@@ -119,11 +136,14 @@ class Encoder(nn.Module):
     Input -> Embed -> RNN -> Output
     """
     embedded = self.embedding(input_seqs)
-    packed = torch.nn.utils.rnn.pack_padded_sequence(embedded, input_lengths)
-    outputs, hidden = self.gru(packed, None)
 
-    outputs, output_lengths = torch.nn.utils.rnn.pad_packed_sequence(outputs) # unpack (back to padded)
-    outputs = outputs[:, :, :self.hidden_size] + outputs[:, : ,self.hidden_size:] # Sum bidirectional outputs
+    # Packed sequence
+    packed = torch.nn.utils.rnn.pack_padded_sequence(embedded, input_lengths)
+    outputs, hidden = self.rnn(packed, None)
+
+    # Unpack sequence
+    outputs, output_lengths = torch.nn.utils.rnn.pad_packed_sequence(outputs) 
+
     return outputs, hidden
 
   def init_weights(self):
@@ -133,13 +153,6 @@ class Encoder(nn.Module):
     # Common initialization strategy
     torch.nn.init.orthogonal(self.rnn.weight_ih_l0)
     torch.nn.init.uniform(self.rnn.weight_hh_l0, a=-0.01, b=0.01)
-
-  def init_hidden(self):
-    hidden = Variable(torch.zeros(self.n_layers, 1, self.hidden_size))
-    if USE_CUDA: 
-      hidden = hidden.cuda()
-
-    return hidden
 
 class Decoder(nn.Module):
   def __init__(
@@ -165,7 +178,9 @@ class Decoder(nn.Module):
 
     # Define layers
     self.embedding = load_embedding(embedding_dict)
-    self.attn = Attn(hidden_size)
+
+    # TODO: emperiment with alternate attention methods
+    self.attn = Attention('concat', hidden_size)
 
     if rnn_type == 'gru':
       self.rnn = nn.GRU(
@@ -173,7 +188,7 @@ class Decoder(nn.Module):
         self.hidden_size,
         num_layers=num_layers,
         dropout=dropout,
-        bidirectional=bidirectional,
+        bidirectional=False,
       )
     else:
       self.rnn = nn.LSTM(
@@ -181,8 +196,9 @@ class Decoder(nn.Module):
         self.hidden_size,
         num_layers=num_layers,
         dropout=dropout,
-        bidirectional=bidirectional,
+        bidirectional=False,
       )
+
     self.out = nn.Linear(hidden_size, output_size)
 
     self.init_weights()
@@ -193,15 +209,12 @@ class Decoder(nn.Module):
     """
     # Embed last output word
     embedded_word = self.embedding(last_output).view(1, 1, -1)
-    # TODO the notebook does a dropout here
      
     # Calculate attention weights based on last_hidden 
     attn_weights = self.attn(last_hidden[-1], encoder_outputs)
 
     # Apply attention weights to encoder outputs
     context = attn_weights.bmm(encoder_outputs.transpose(0, 1))
-
-    # TODO I added the next line because it was in the batching notebook but idk why it's here
     context = context.transpose(0, 1)
 
     # Concatenate last output word with attended context and run through RNN
