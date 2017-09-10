@@ -4,44 +4,48 @@ from torch.nn import functional
 from torch.autograd import Variable
 
 def pad_seq(seq, max_length):
-    seq += [preprocessing.PAD_TOKEN for i in range(max_length - len(seq))]
-    return seq
+  seq += [preprocessing.PAD_TOKEN for i in range(max_length - len(seq))]
+  return seq
 
-def random_batch(all_messages, context_length, batch_size):
-    input_seqs = []
-    target_seqs = []
+def random_batch(all_messages, context_length, batch_size, user_filter=None):
+  input_seqs = []
+  target_seqs = []
 
-    # Choose random pairs
-    for i in range(batch_size):
-        start_index = random.randint(0, len(all_messages) - context_length)
-        # Make context by taking a couple of messages before
-        input_seq = []
-        for msg in all_messages[start_index:start_index+context_length]:
-          input_seq = input_seq + msg
-          input_seq.append(preprocessing.EOM_TOKEN)
+  # Choose random pairs
+  for i in range(batch_size):
+    while True:
+      start_index = random.randint(0, len(all_messages) - context_length)
+      if user_filter == None or all_messages[start_index + context_length][0] == user_filter:
+        break
 
-        input_seqs.append(indexes_from_sentence(input_lang, input_seq))
-        target_seqs.append(indexes_from_sentence(output_lang, all_messages[start_index+context_length]))
+    # Make context by taking a couple of messages before
+    input_seq = []
+    for sender, msg in all_messages[start_index:start_index+context_length]:
+      input_seq = input_seq + msg
+      input_seq.append(preprocessing.EOM_TOKEN)
 
-    # Zip into pairs, sort by length (descending), unzip
-    seq_pairs = sorted(zip(input_seqs, target_seqs), key=lambda p: len(p[0]), reverse=True)
-    input_seqs, target_seqs = zip(*seq_pairs)
-    
-    # For input and target sequences, get array of lengths and pad with 0s to max length
-    input_lengths = [len(s) for s in input_seqs]
-    input_padded = [pad_seq(s, max(input_lengths)) for s in input_seqs]
-    target_lengths = [len(s) for s in target_seqs]
-    target_padded = [pad_seq(s, max(target_lengths)) for s in target_seqs]
+    input_seqs.append(indexes_from_sentence(input_lang, input_seq))
+    target_seqs.append(indexes_from_sentence(output_lang, all_messages[start_index + context_length][1]))
 
-    # Turn padded arrays into (batch_size x max_len) tensors, transpose into (max_len x batch_size)
-    input_var = Variable(torch.LongTensor(input_padded)).transpose(0, 1)
-    target_var = Variable(torch.LongTensor(target_padded)).transpose(0, 1)
-    
-    if USE_CUDA:
-        input_var = input_var.cuda()
-        target_var = target_var.cuda()
-        
-    return input_var, input_lengths, target_var, target_lengths
+  # Zip into pairs, sort by length (descending), unzip
+  seq_pairs = sorted(zip(input_seqs, target_seqs), key=lambda p: len(p[0]), reverse=True)
+  input_seqs, target_seqs = zip(*seq_pairs)
+  
+  # For input and target sequences, get array of lengths and pad with 0s to max length
+  input_lengths = [len(s) for s in input_seqs]
+  input_padded = [pad_seq(s, max(input_lengths)) for s in input_seqs]
+  target_lengths = [len(s) for s in target_seqs]
+  target_padded = [pad_seq(s, max(target_lengths)) for s in target_seqs]
+
+  # Turn padded arrays into (batch_size x max_len) tensors, transpose into (max_len x batch_size)
+  input_var = Variable(torch.LongTensor(input_padded)).transpose(0, 1)
+  target_var = Variable(torch.LongTensor(target_padded)).transpose(0, 1)
+  
+  if USE_CUDA:
+    input_var = input_var.cuda()
+    target_var = target_var.cuda()
+      
+  return input_var, input_lengths, target_var, target_lengths
 
 def sequence_mask(sequence_length, max_len=None):
     if max_len is None:

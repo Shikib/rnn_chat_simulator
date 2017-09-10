@@ -7,20 +7,28 @@ import train
 
 embedding_source = 'data/glove.6B.100d.txt'
 vocab_source = 'data/vocabulary.txt'
+messages_source = 'data/msgs.txt'
+
 hidden_size = 300
 vocab_offset = 10 # Amount of space to reserve for things like EOS, pad symbol, ...
+user_filter = None
 
 batch_size = 50
 grad_clip = 50
 learning_rate = 0.0001
 decoder_learning_ratio = 5.0
 n_epochs = 50000
+context_length = 3
 
 vocab, inversevocab = preprocessing.load_vocab(vocab_source, vocab_offset=vocab_offset)
 embeddings = preprocessing.load_glove_embeddings(vocab, embedding_source)
 
-vocab_size = embeddings[max[
+vocab_size = max(embeddings.keys())
 input_size = len(embeddings[vocab_offset])
+
+raw_messages = preprocessing.load_messages(datafile)
+# do some more preprocessing here...
+encoded_messages = preprocessing.encode_messages(raw_messages)
 
 encoder = models.Encoder(
   input_size=input_size,
@@ -48,7 +56,7 @@ while epoch < n_epochs:
     epoch += 1
     
     # Get training data for this cycle
-    input_batches, input_lengths, target_batches, target_lengths = data.random_batch(data, batch_size)
+    input_batches, input_lengths, target_batches, target_lengths = data.random_batch(encoded_messages, context_length, batch_size, user_filter=user_filter)
 
     # Run the train function
     loss, ec, dc = train(

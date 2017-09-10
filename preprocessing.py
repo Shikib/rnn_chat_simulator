@@ -13,7 +13,6 @@ def load_vocab(filename, vocab_offset):
   }
   return (vocab, inv)
 
-
 def load_glove_embeddings(vocab, embedding_filename):
   lines = open(filename).readlines()
   embeddings = {}
@@ -25,18 +24,18 @@ def load_glove_embeddings(vocab, embedding_filename):
   
   return embeddings
 
-def read_messages(datafile):
-  return ['im gay', 'same']
+def load_messages(datafile):
+  return [('shikib', 'im gay'), ('kevin', 'same')]
 
-def tokenize_messages(msgs):
-  sentences = []
-  for msg in msgs:
-    sentence = []
+def encode_messages(msgs):
+  encoded_msgs = []
+  for (sender, msg) in msgs:
+    encoded_msg = []
     import re
     for word in re.findall(r"[\w]+|[^\s\w]", msg):
       if word in vocab:
-        sentence.append(vocab[word])
+        encoded_msg.append(vocab[word])
       else:
         # TODO ???
-    sentences.append(sentence)
-  return sentences
+    encoded_msgs.append((sender, encoded_msg))
+  return encoded_msgs
