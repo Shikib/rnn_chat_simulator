@@ -28,7 +28,7 @@ def train(
   encoder_outputs, encoder_hidden = encoder(input_batches, input_lengths, None)
   
   # Prepare input and output variables
-  decoder_input = Variable(torch.LongTensor([data.start_token_index] * batch_size))
+  decoder_input = Variable(torch.LongTensor([constants.SOM] * batch_size))
 
   # TODO: This seems wrong?
   decoder_hidden = encoder_hidden[:decoder.n_layers] # Use last (forward) hidden state from encoder

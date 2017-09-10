@@ -1,8 +1,5 @@
 import re
 
-PAD_TOKEN = 0
-EOM_TOKEN = 1
-
 def load_vocab(filename):
   """
   Load the vocabulary
@@ -50,7 +47,7 @@ def numberize_messages(messages, vocab):
   """
   numberized_messages = []
   for sender,msg in messages:
-    numberized = [vocab.get(word, 0) for word in msg.split()]
+    numberized = [vocab.get(word, constants.UNK) for word in msg.split()]
     numberized_messages.append((sender, numberized))
 
   return numberized_messages

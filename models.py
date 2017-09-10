@@ -7,8 +7,6 @@ import torch.nn.functional as F
 import torch.nn.init
 import preprocessing
 
-USE_CUDA = True
-
 def load_embedding(embedding_dict, vocab_size, input_size):
   """
   Load the embeddings. 
@@ -57,7 +55,7 @@ class Attention(nn.Module):
     # Attention energies.
     attn_energies = Variable(torch.zeros(this_batch_size, max_len)) # B x S
 
-    if USE_CUDA:
+    if constants.USE_CUDA:
       attn_energies = attn_energies.cuda()
 
     # Iterate over each batch and each encoder output to construct scores.

@@ -3,8 +3,6 @@ import random
 from torch.nn import functional
 from torch.autograd import Variable
 
-USE_CUDA = True
-
 def pad_seq(seq, max_length):
   """
   Pad sequence to maximum length.
@@ -50,7 +48,7 @@ def random_batch(all_messages, context_length, batch_size, user_filter=None):
   input_var = Variable(torch.LongTensor(input_padded)).transpose(0, 1)
   target_var = Variable(torch.LongTensor(target_padded)).transpose(0, 1)
   
-  if USE_CUDA:
+  if constants.USE_CUDA:
     input_var = input_var.cuda()
     target_var = target_var.cuda()
       
