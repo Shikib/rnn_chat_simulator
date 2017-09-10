@@ -5,31 +5,34 @@ import torch.nn as nn
 import models
 import train
 
-embedding_source = 'data/glove.6B.100d.txt'
-vocab_source = 'data/vocabulary.txt'
-messages_source = 'data/msgs.txt'
+# File parameters
+embedding_file = 'data/glove.6B.100d.txt'
+vocab_file = 'data/vocabulary.txt'
+messages_file = 'data/msgs.txt'
 
-hidden_size = 300
-vocab_offset = 10 # Amount of space to reserve for things like EOS, pad symbol, ...
+# Batch parameters
+batch_size = 50
+context_length = 3
 user_filter = None
 
-batch_size = 50
-grad_clip = 50
-learning_rate = 0.0001
+# Model parameters
 decoder_learning_ratio = 5.0
-n_epochs = 50000
-context_length = 3
+epochs = 50000
+grad_clip = 50
+hidden_size = 300
+learning_rate = 0.0001
 
-vocab, inversevocab = preprocessing.load_vocab(vocab_source, vocab_offset=vocab_offset)
-embeddings = preprocessing.load_glove_embeddings(vocab, embedding_source)
+# Load vocab/embeddings
+w2i, i2w = preprocessing.load_vocab(vocab_source, vocab_offset=vocab_offset)
+embeddings = preprocessing.load_embeddings(embedding_file, w2i)
+vocab_size = len(vocab)
+input_size = len(embeddings[0])
 
-vocab_size = max(embeddings.keys())
-input_size = len(embeddings[vocab_offset])
+# Load/numberize messages
+messages = preprocessing.load_messages(messages_file)
+numberized_messages = preprocessing.numberize_messages(messages, w2i)
 
-raw_messages = preprocessing.load_messages(datafile)
-# do some more preprocessing here...
-encoded_messages = preprocessing.encode_messages(raw_messages)
-
+# Create encoder
 encoder = models.Encoder(
   input_size=input_size,
   hidden_size=hidden_size,
@@ -37,68 +40,58 @@ encoder = models.Encoder(
   embedding_dict=embeddings,
   num_layers=1,
   dropout=0,
-  rnn_type='gru')
+  rnn_type='gru',
+)
 
+# Create decoder
 decoder = models.Decoder(
   input_size=input_size,
   hidden_size=hidden_size,
   vocab_size=vocab_size,
   num_layers=1,
   dropout=0,
-  rnn_type='gru')
+  rnn_type='gru',
+)
 
+# Create Adam optimizers. Decoder has 5* the learning rate of the encoder.
 encoder_optimizer = torch.optim.Adam(encoder.parameters(), lr=learning_rate)
 decoder_optimizer = torch.optim.Adam(decoder.parameters(), lr=learning_rate * decoder_learning_ratio)
 criterion = nn.CrossEntropyLoss()
 
-epoch = 0
-while epoch < n_epochs:
-    epoch += 1
-    
-    # Get training data for this cycle
-    input_batches, input_lengths, target_batches, target_lengths = data.random_batch(encoded_messages, context_length, batch_size, user_filter=user_filter)
+# Logging parameters
+print_every = 10
+eval_every = 100
 
-    # Run the train function
-    loss, ec, dc = train(
-        input_batches, input_lengths, target_batches, target_lengths,
-        encoder, decoder,
-        encoder_optimizer, decoder_optimizer, criterion
-    )
+# Training loop.
+for epoch in range(epochs)
+  # Get training data for this cycle
+  input_batches, input_lengths, target_batches, target_lengths = \
+    data.random_batch(encoded_messages, context_length, batch_size, user_filter=user_filter)
 
-    # Keep track of loss
-    print_loss_total += loss
-    plot_loss_total += loss
-    eca += ec
-    dca += dc
-    
-    job.record(epoch, loss)
+  # Run the train function
+  loss = train(
+    input_batches, 
+    input_lengths, 
+    target_batches, 
+    target_lengths,
+    encoder, 
+    decoder,
+    encoder_optimizer, 
+    decoder_optimizer, 
+    criterion,
+  )
 
-    if epoch % print_every == 0:
-        print_loss_avg = print_loss_total / print_every
-        print_loss_total = 0
-        print_summary = '%s (%d %d%%) %.4f' % (time_since(start, epoch / n_epochs), epoch, epoch / n_epochs * 100, print_loss_avg)
-        print(print_summary)
-        
-    if epoch % evaluate_every == 0:
-        evaluate_randomly()
+  # Keep track of loss
+  print_loss_total += loss
 
-    if epoch % plot_every == 0:
-        plot_loss_avg = plot_loss_total / plot_every
-        plot_losses.append(plot_loss_avg)
-        plot_loss_total = 0
-        
-        # TODO: Running average helper
-        ecs.append(eca / plot_every)
-        dcs.append(dca / plot_every)
-        ecs_win = 'encoder grad (%s)' % hostname
-        dcs_win = 'decoder grad (%s)' % hostname
-        vis.line(np.array(ecs), win=ecs_win, opts={'title': ecs_win})
-        vis.line(np.array(dcs), win=dcs_win, opts={'title': dcs_win})
-        eca = 0
-        dca = 0
+  if epoch % print_every == 0:
+    print_loss_avg = print_loss_total/print_every
+    print_loss_total = 0
+    print_summary = '%s (%d %d%%) %.4f' % (time_since(start, epoch / n_epochs), epoch, epoch / n_epochs * 100, print_loss_avg)
+    print(print_summary)
 
-# train.train(..., grad_clip=grad_clip)
-# predict.predict()
-# sentence = [inversevocab[x] for x in prediction]
-# ???
-# meme
+  if epoch % eval_every == 0:
+    # TODO: add evaluation code (print out seq -> output)
+    print("NOT IMPLEMENTED YET")
+
+import pdb; pdb.set_trace()

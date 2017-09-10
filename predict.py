@@ -11,12 +11,10 @@ def predict(sequence, encoder, decoder, max_length):
   Given the input sentence and the maximum length of the output, 
   generate and return the output sentence.
   """
-
   # Set train to False to eliminate dropout (not necessary right now but 
   # might as well).
   encoder.train(False)
   decoder.train(False)
-
 
   # Create input batch
   input_batch = Variable(torch.LongTensor([sequence]), volatile=True).transpose(0, 1) 
