@@ -62,10 +62,14 @@ class Attention(nn.Module):
     if constants.USE_CUDA:
       attn_energies = attn_energies.cuda()
 
+
+    import time; start = time.time()
+
     # Iterate over each batch and each encoder output to construct scores.
-    for b in range(batch_size):
-      for i in range(max_len):
-        attn_energies[b,i] = self.score(hidden[b,:].view(1, self.hidden_size), encoder_outputs[i,b].unsqueeze(0))
+    for i in range(max_len):
+      attn_energies[:,i] = self.score(hidden, encoder_outputs[i])
+
+    print(time.time() - start)
 
     # Normalize energies to weights in range 0 to 1, resize to 1 x B x S
     return F.softmax(attn_energies).unsqueeze(1)
@@ -82,7 +86,7 @@ class Attention(nn.Module):
       energy = hidden.squeeze().dot(energy.squeeze())
     elif self.method == 'concat':
       energy = self.attn(torch.cat((hidden, encoder_output), 1))
-      energy = self.v.squeeze().dot(energy.squeeze())
+      energy = self.v.matmul(energy.transpose(0, 1)).squeeze()
 
     return energy
 
@@ -185,7 +189,7 @@ class Decoder(nn.Module):
 
     # TODO: emperiment with alternate attention methods
     # Concat is really slow for some reason.
-    self.attn = Attention('dot', hidden_size)
+    self.attn = Attention('concat', hidden_size)
 
     if rnn_type == 'gru':
       self.rnn = nn.GRU(
