@@ -48,6 +48,7 @@ decoder = models.Decoder(
   input_size=input_size,
   hidden_size=hidden_size,
   vocab_size=vocab_size,
+  embedding_dict=embeddings,
   num_layers=1,
   dropout=0,
   rnn_type='gru',
