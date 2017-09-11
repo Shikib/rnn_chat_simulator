@@ -65,7 +65,7 @@ class Attention(nn.Module):
     # Iterate over each batch and each encoder output to construct scores.
     for b in range(batch_size):
       for i in range(max_len):
-        attn_energies[b,i] = self.score(hidden[b,:].view(1, 300), encoder_outputs[i,b].unsqueeze(0))
+        attn_energies[b,i] = self.score(hidden[b,:].view(1, self.hidden_size), encoder_outputs[i,b].unsqueeze(0))
 
     # Normalize energies to weights in range 0 to 1, resize to 1 x B x S
     return F.softmax(attn_energies).unsqueeze(1)
@@ -76,13 +76,13 @@ class Attention(nn.Module):
     """
     # Three different types of attention based on Luong et al. (arXiv:1508.04025)
     if self.method == 'dot':
-      energy = hidden.dot(encoder_output)
+      energy = hidden.squeeze().dot(encoder_output.squeeze())
     elif self.method == 'general':
       energy = self.attn(encoder_output)
-      energy = hidden.dot(energy)
+      energy = hidden.squeeze().dot(energy.squeeze())
     elif self.method == 'concat':
       energy = self.attn(torch.cat((hidden, encoder_output), 1))
-      energy = self.v.dot(energy)
+      energy = self.v.squeeze().dot(energy.squeeze())
 
     return energy
 
@@ -184,7 +184,8 @@ class Decoder(nn.Module):
                                     self.input_size)
 
     # TODO: emperiment with alternate attention methods
-    self.attn = Attention('concat', hidden_size)
+    # Concat is really slow for some reason.
+    self.attn = Attention('dot', hidden_size)
 
     if rnn_type == 'gru':
       self.rnn = nn.GRU(
@@ -214,6 +215,7 @@ class Decoder(nn.Module):
     # Embed last output word
     embedded_word = self.embedding(last_output).view(1, -1, self.input_size)
      
+
     # Calculate attention weights based on last_hidden 
     attn_weights = self.attn(last_hidden, encoder_outputs)
 

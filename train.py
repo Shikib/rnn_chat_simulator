@@ -64,8 +64,8 @@ def train(
   loss.backward()
   
   # Clip gradient norms
-  torch.nn.utils.clip_grad_norm(encoder.parameters(), clip)
-  torch.nn.utils.clip_grad_norm(decoder.parameters(), clip)
+  torch.nn.utils.clip_grad_norm(encoder.parameters(), grad_clip)
+  torch.nn.utils.clip_grad_norm(decoder.parameters(), grad_clip)
 
   # Update parameters with optimizers
   encoder_optimizer.step()

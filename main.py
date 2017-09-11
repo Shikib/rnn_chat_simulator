@@ -7,6 +7,8 @@ import data
 import models
 import preprocessing
 import train
+import time
+import math
 
 # File parameters
 embedding_file = 'data/w2v.emb'
@@ -14,15 +16,15 @@ vocab_file = 'data/vocab.txt'
 messages_file = 'data/messages.tsv'
 
 # Batch parameters
-batch_size = 50
-context_length = 3
+batch_size = 64
+context_length = 2
 user_filter = None
 
 # Model parameters
 decoder_learning_ratio = 5.0
-epochs = 50000
+epochs = 2
 grad_clip = 50
-hidden_size = 300
+hidden_size = 100
 learning_rate = 0.0001
 
 # Load vocab/embeddings
@@ -31,9 +33,13 @@ embeddings = preprocessing.load_embeddings(embedding_file, w2i)
 vocab_size = len(w2i)
 input_size = len(embeddings[1])
 
+print("Loaded %d words" % vocab_size)
+
 # Load/numberize messages
 messages = preprocessing.load_messages(messages_file)
 numberized_messages = preprocessing.numberize_messages(messages, w2i)
+
+print("Loaded %d messages" % len(messages))
 
 # Create encoder
 encoder = models.Encoder(
@@ -67,7 +73,9 @@ decoder_optimizer = torch.optim.Adam(decoder.parameters(), lr=learning_rate * de
 criterion = nn.CrossEntropyLoss()
 
 # Logging parameters
-print_every = 10
+start = time.time()
+print_loss_total = 0
+print_every = 1
 eval_every = 100
 
 # Training loop.
@@ -92,10 +100,21 @@ for epoch in range(epochs):
   # Keep track of loss
   print_loss_total += loss
 
+  def as_minutes(s):
+    m = math.floor(s / 60)
+    s -= m * 60
+    return "%dm %ds" % (m, s)
+  def time_since(since, percent):
+    now = time.time()
+    s = now - since
+    es = s / percent
+    rs = es - s
+    return "%s (- %s)" % (as_minutes(s), as_minutes(rs))
+
   if epoch % print_every == 0:
-    print_loss_avg = print_loss_total/print_every
+    print_loss_avg = print_loss_total / print_every
     print_loss_total = 0
-    print_summary = '%s (%d %d%%) %.4f' % (time_since(start, epoch / n_epochs), epoch, epoch / n_epochs * 100, print_loss_avg)
+    print_summary = '%s (%d %d%%) %.4f' % (time_since(start, (epoch + 1) / epochs), epoch, (epoch + 1) / epochs * 100, print_loss_avg)
     print(print_summary)
 
   if epoch % eval_every == 0:
