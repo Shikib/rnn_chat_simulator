@@ -1,3 +1,5 @@
+import constants
+import csv
 import re
 
 def load_vocab(filename):
@@ -22,7 +24,7 @@ def load_embeddings(embedding_filename, vocab):
   In file: word [embedding vector]
   In output: word -> embedding_vector
   """
-  lines = open(filename).readlines()
+  lines = open(embedding_filename).readlines()
   embeddings = {}
   for line in lines:
     word = line.split()[0]
@@ -32,11 +34,15 @@ def load_embeddings(embedding_filename, vocab):
   
   return embeddings
 
-def load_messages(datafile):
+def load_messages(data_file):
   """
   Load messages from data file.
   """
-  return [('shikib', 'im bored'), ('kevin', 'same')]
+  messages = []
+  for row in csv.reader(open(data_file), delimiter="\t"):
+    messages.append((row[0], row[1]))
+
+  return messages
 
 def numberize_messages(messages, vocab):
   """

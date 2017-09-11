@@ -2,9 +2,10 @@
 File which contains model definitions.
 """
 
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.nn.init
+import torch.nn.init as init
 import preprocessing
 
 def load_embedding(embedding_dict, vocab_size, input_size):
@@ -175,7 +176,9 @@ class Decoder(nn.Module):
     self.rnn_type = rnn_type
 
     # Define layers
-    self.embedding = load_embedding(embedding_dict)
+    self.embedding = load_embedding(embedding_dict, 
+                                    self.vocab_size, 
+                                    self.input_size)
 
     # TODO: emperiment with alternate attention methods
     self.attn = Attention('concat', hidden_size)
@@ -197,7 +200,7 @@ class Decoder(nn.Module):
         bidirectional=False,
       )
 
-    self.out = nn.Linear(hidden_size, output_size)
+    self.out = nn.Linear(hidden_size, vocab_size)
 
     self.init_weights()
 

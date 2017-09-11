@@ -11,7 +11,6 @@ def train(
   encoder_optimizer,
   decoder_optimizer,
   criterion,
-  max_length=MAX_LENGTH,
   grad_clip=5.0,
 ):
   """
@@ -25,7 +24,7 @@ def train(
   loss = 0 
 
   # Run words through encoder
-  encoder_outputs, encoder_hidden = encoder(input_batches, input_lengths, None)
+  encoder_outputs, encoder_hidden = encoder(input_batches, input_lengths)
   
   # Prepare input and output variables
   decoder_input = Variable(torch.LongTensor([constants.SOM] * batch_size))

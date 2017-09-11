@@ -2,13 +2,15 @@ import torch
 import torch.optim
 import torch.nn as nn
 
+import data
 import models
+import preprocessing
 import train
 
 # File parameters
-embedding_file = 'data/glove.6B.100d.txt'
-vocab_file = 'data/vocabulary.txt'
-messages_file = 'data/msgs.txt'
+embedding_file = 'data/w2v.emb'
+vocab_file = 'data/vocab.txt'
+messages_file = 'data/messages.tsv'
 
 # Batch parameters
 batch_size = 50
@@ -23,10 +25,10 @@ hidden_size = 300
 learning_rate = 0.0001
 
 # Load vocab/embeddings
-w2i, i2w = preprocessing.load_vocab(vocab_source, vocab_offset=vocab_offset)
+w2i, i2w = preprocessing.load_vocab(vocab_file)
 embeddings = preprocessing.load_embeddings(embedding_file, w2i)
-vocab_size = len(vocab)
-input_size = len(embeddings[0])
+vocab_size = len(w2i)
+input_size = len(embeddings[1])
 
 # Load/numberize messages
 messages = preprocessing.load_messages(messages_file)
@@ -36,7 +38,7 @@ numberized_messages = preprocessing.numberize_messages(messages, w2i)
 encoder = models.Encoder(
   input_size=input_size,
   hidden_size=hidden_size,
-  vocab_size=vocab_size
+  vocab_size=vocab_size,
   embedding_dict=embeddings,
   num_layers=1,
   dropout=0,
@@ -64,13 +66,13 @@ print_every = 10
 eval_every = 100
 
 # Training loop.
-for epoch in range(epochs)
+for epoch in range(epochs):
   # Get training data for this cycle
   input_batches, input_lengths, target_batches, target_lengths = \
-    data.random_batch(encoded_messages, context_length, batch_size, user_filter=user_filter)
+    data.random_batch(numberized_messages, context_length, batch_size, user_filter=user_filter)
 
   # Run the train function
-  loss = train(
+  loss = train.train(
     input_batches, 
     input_lengths, 
     target_batches, 

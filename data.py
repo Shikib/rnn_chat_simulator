@@ -1,5 +1,7 @@
-import torch
+import constants
 import random
+import torch
+
 from torch.nn import functional
 from torch.autograd import Variable
 
@@ -7,7 +9,7 @@ def pad_seq(seq, max_length):
   """
   Pad sequence to maximum length.
   """
-  seq += [preprocessing.PAD_TOKEN for i in range(max_length - len(seq))]
+  seq += [constants.UNK for i in range(max_length - len(seq))]
   return seq
 
 def random_batch(all_messages, context_length, batch_size, user_filter=None):
@@ -29,10 +31,9 @@ def random_batch(all_messages, context_length, batch_size, user_filter=None):
     input_seq = []
     for sender, msg in all_messages[start_index:start_index+context_length]:
       input_seq = input_seq + msg
-      input_seq.append(preprocessing.EOM_TOKEN)
 
-    input_seqs.append(indexes_from_sentence(input_lang, input_seq))
-    target_seqs.append(indexes_from_sentence(output_lang, all_messages[start_index + context_length][1]))
+    input_seqs.append(input_seq)
+    target_seqs.append(all_messages[start_index+context_length][1])
 
   # Zip into pairs, sort by length (descending), unzip
   seq_pairs = sorted(zip(input_seqs, target_seqs), key=lambda p: len(p[0]), reverse=True)
