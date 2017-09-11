@@ -2,11 +2,14 @@
 File which contains model definitions.
 """
 
+import constants
+import preprocessing
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.init as init
-import preprocessing
+
+from torch.autograd import Variable
 
 def load_embedding(embedding_dict, vocab_size, input_size):
   """
@@ -54,7 +57,7 @@ class Attention(nn.Module):
     batch_size = encoder_outputs.size(1)
 
     # Attention energies.
-    attn_energies = Variable(torch.zeros(this_batch_size, max_len)) # B x S
+    attn_energies = Variable(torch.zeros(batch_size, max_len)) # B x S
 
     if constants.USE_CUDA:
       attn_energies = attn_energies.cuda()
@@ -62,7 +65,7 @@ class Attention(nn.Module):
     # Iterate over each batch and each encoder output to construct scores.
     for b in range(batch_size):
       for i in range(max_len):
-        attn_energies[b,i] = self.score(hidden[:,b], encoder_outputs[i,b].unsqueeze(0))
+        attn_energies[b,i] = self.score(hidden[b,:].view(1, 300), encoder_outputs[i,b].unsqueeze(0))
 
     # Normalize energies to weights in range 0 to 1, resize to 1 x B x S
     return F.softmax(attn_energies).unsqueeze(1)
@@ -185,7 +188,7 @@ class Decoder(nn.Module):
 
     if rnn_type == 'gru':
       self.rnn = nn.GRU(
-        input_size,
+        self.input_size+self.hidden_size,
         self.hidden_size,
         num_layers=num_layers,
         dropout=dropout,
@@ -193,14 +196,14 @@ class Decoder(nn.Module):
       )
     else:
       self.rnn = nn.LSTM(
-        input_size,
+        self.input_size+self.hidden_size,
         self.hidden_size,
         num_layers=num_layers,
         dropout=dropout,
         bidirectional=False,
       )
 
-    self.out = nn.Linear(hidden_size, vocab_size)
+    self.out = nn.Linear(2*hidden_size, vocab_size)
 
     self.init_weights()
 
@@ -209,10 +212,10 @@ class Decoder(nn.Module):
     Run RNN decoder on one timestep, to generate one output word.
     """
     # Embed last output word
-    embedded_word = self.embedding(last_output).view(1, 1, -1)
+    embedded_word = self.embedding(last_output).view(1, -1, self.input_size)
      
     # Calculate attention weights based on last_hidden 
-    attn_weights = self.attn(last_hidden[-1], encoder_outputs)
+    attn_weights = self.attn(last_hidden, encoder_outputs)
 
     # Apply attention weights to encoder outputs
     context = attn_weights.bmm(encoder_outputs.transpose(0, 1))
@@ -220,14 +223,14 @@ class Decoder(nn.Module):
 
     # Concatenate last output word with attended context and run through RNN
     rnn_input = torch.cat((embedded_word, context), 2)
-    output, hidden = self.rnn(rnn_input, last_hidden)
+    output, hidden = self.rnn(rnn_input, last_hidden.unsqueeze(0))
 
     # Run through softmax layer
     output = output.squeeze(0)
-    output = F.log_softmax(self.out(torch.cat((output, context), 1)))
+    output = F.log_softmax(self.out(torch.cat((output, context.squeeze(0)), 1)))
 
     # Return softmax output and RNN hidden state 
-    return output, hidden
+    return output, hidden.squeeze(0)
 
   def init_weights(self):
     """

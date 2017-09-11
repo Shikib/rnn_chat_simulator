@@ -1,5 +1,8 @@
+import constants
 import data
 import torch
+
+from torch.autograd import Variable
 
 def train(
   input_batches,
@@ -16,6 +19,8 @@ def train(
   """
   Training function
   """
+  batch_size = input_batches.size()[1]
+
   # Zero gradients of both optimizers
   encoder_optimizer.zero_grad()
   decoder_optimizer.zero_grad()
@@ -29,20 +34,19 @@ def train(
   # Prepare input and output variables
   decoder_input = Variable(torch.LongTensor([constants.SOM] * batch_size))
 
-  # TODO: This seems wrong?
-  decoder_hidden = encoder_hidden[:decoder.n_layers] # Use last (forward) hidden state from encoder
+  decoder_hidden = encoder_hidden[encoder.num_layers-1] # Use last (forward) hidden state from encoder
 
   max_target_length = max(target_lengths)
-  all_decoder_outputs = Variable(torch.zeros(max_target_length, batch_size, decoder.output_size))
+  all_decoder_outputs = Variable(torch.zeros(max_target_length, batch_size, decoder.vocab_size))
 
   # Move new Variables to CUDA
-  if USE_CUDA:
+  if constants.USE_CUDA:
     decoder_input = decoder_input.cuda()
     all_decoder_outputs = all_decoder_outputs.cuda()
 
   # Run through decoder one time step at a time
   for t in range(max_target_length):
-    decoder_output, decoder_hidden, decoder_attn = decoder(
+    decoder_output, decoder_hidden = decoder(
       decoder_input, decoder_hidden, encoder_outputs
     )
 

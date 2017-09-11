@@ -2,6 +2,7 @@ import torch
 import torch.optim
 import torch.nn as nn
 
+import constants
 import data
 import models
 import preprocessing
@@ -55,6 +56,10 @@ decoder = models.Decoder(
   dropout=0,
   rnn_type='gru',
 )
+
+if constants.USE_CUDA:
+  encoder = encoder.cuda()
+  decoder = decoder.cuda()
 
 # Create Adam optimizers. Decoder has 5* the learning rate of the encoder.
 encoder_optimizer = torch.optim.Adam(encoder.parameters(), lr=learning_rate)
