@@ -2,6 +2,7 @@ import torch
 import torch.optim
 import torch.nn as nn
 
+import predict
 import constants
 import data
 import models
@@ -22,9 +23,9 @@ user_filter = None
 
 # Model parameters
 decoder_learning_ratio = 5.0
-epochs = 2
+epochs = 5000
 grad_clip = 50
-hidden_size = 100
+hidden_size = 200
 learning_rate = 0.0001
 
 # Load vocab/embeddings
@@ -75,7 +76,7 @@ criterion = nn.CrossEntropyLoss()
 # Logging parameters
 start = time.time()
 print_loss_total = 0
-print_every = 1
+print_every = 5
 eval_every = 100
 
 # Training loop.
@@ -118,7 +119,11 @@ for epoch in range(epochs):
     print(print_summary)
 
   if epoch % eval_every == 0:
-    # TODO: add evaluation code (print out seq -> output)
-    print("NOT IMPLEMENTED YET")
+    msg = ("me", "__som__ yo dude wtf is going on with that guy __eom__")
+    numberize = preprocessing.numberize_messages([msg], w2i)[0][1]
+    words = predict.predict(numberize, encoder, decoder, 100)
+    sentence = ' '.join([i2w[i] for i in words])
+    print("%s -> %s" % (msg, sentence))
+    
 
 import pdb; pdb.set_trace()

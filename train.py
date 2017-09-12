@@ -71,4 +71,7 @@ def train(
   encoder_optimizer.step()
   decoder_optimizer.step()
   
-  return loss.data[0]
+  loss_val = loss.data[0]
+  del loss
+
+  return loss_val

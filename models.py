@@ -62,14 +62,9 @@ class Attention(nn.Module):
     if constants.USE_CUDA:
       attn_energies = attn_energies.cuda()
 
-
-    import time; start = time.time()
-
     # Iterate over each batch and each encoder output to construct scores.
     for i in range(max_len):
       attn_energies[:,i] = self.score(hidden, encoder_outputs[i])
-
-    print(time.time() - start)
 
     # Normalize energies to weights in range 0 to 1, resize to 1 x B x S
     return F.softmax(attn_energies).unsqueeze(1)

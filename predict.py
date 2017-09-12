@@ -3,6 +3,9 @@ File for greedy decoding using the Attention Seq2Seq model.
 """
 import data
 import preprocessing
+import torch
+import constants
+from torch.autograd import Variable
 
 def predict(sequence, encoder, decoder, max_length):
   """
@@ -15,14 +18,17 @@ def predict(sequence, encoder, decoder, max_length):
   decoder.train(False)
 
   # Create input batch
+  # import pdb; pdb.set_trace()
   input_batch = Variable(torch.LongTensor([sequence]), volatile=True).transpose(0, 1) 
 
+  if constants.USE_CUDA:
+    input_batch = input_batch.cuda()
+
   # Run through encoder
-  encoder_hidden = encoder.init_hidden()
   encoder_outputs, encoder_hidden = encoder(input_batch, [len(sequence)])
 
   # Create decoder output
-  decoder_input = Variable(torch.LongTensor([[constants.SOM]])
+  decoder_input = Variable(torch.LongTensor([[constants.SOM]]))
   decoder_hidden = Variable(torch.zeros(1, decoder.hidden_size))
 
   if constants.USE_CUDA:
@@ -30,7 +36,7 @@ def predict(sequence, encoder, decoder, max_length):
     decoder_hidden = decoder_hidden.cuda()
 
   # TODO: does this really make sense?
-  decoder_hidden = encoder_hidden
+  decoder_hidden = encoder_hidden[encoder.num_layers-1]
 
   # Run through the coder until we've hit the maximum length or an end token
   decoded_words = []
@@ -40,7 +46,7 @@ def predict(sequence, encoder, decoder, max_length):
                                              encoder_outputs)
     
     # Select top word
-    _, top_word = decoder.output.data.topk(1)
+    _, top_word = decoder_output.data.topk(1)
     word_index = top_word[0][0]
     decoded_words.append(word_index)
 
