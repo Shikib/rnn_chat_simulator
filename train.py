@@ -21,11 +21,6 @@ def train(
   """
   batch_size = input_batches.size()[1]
 
-  print("Input Batch size: {0}".format(str(input_batches.size())))
-  print("Output Batch size: {0}".format(str(target_batches.size())))
-  #import os;
-  #print(os.system("nvidia-smi"))
-
   # Zero gradients of both optimizers
   encoder_optimizer.zero_grad()
   decoder_optimizer.zero_grad()
@@ -79,7 +74,4 @@ def train(
   loss_val = loss.data[0]
   del loss
 
-  import gc
-  gc.collect()
-
-  return loss_val
+  return loss_val, all_decoder_outputs.max(2)[1]

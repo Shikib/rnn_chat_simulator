@@ -22,6 +22,22 @@ def preprocess_sentence(sentence):
         stemmer.stem(word) for word in words
     ]) + " __eom__"
 
+def preprocess_sentence2(sentence):
+    """
+    Given a sentence, tokenize it, stem it, then rejoin
+    it into a string.
+    """
+    sentence = sentence.lower()
+    sentence = sentence.replace("'", "")
+    sentence = sentence.replace('"', "")
+    sentence = re.sub(r'[^\w\s]', ' ', sentence)
+
+    sentence = sentence.replace("\n", " __new__ ")
+    sentence = sentence.replace("\t", " __tab__ ")
+   
+    words = [word for word in word_tokenize(sentence)]
+    return "__som__ " + ' '.join(words) + " __eom__"
+
 def parse_file(filename):
   messages = []
   
@@ -39,7 +55,7 @@ def parse_file(filename):
     else:
       username = msg['from']['username']
     
-    text = preprocess_sentence(msg['text'])
+    text = preprocess_sentence2(msg['text'])
     date = msg['date']
   
     messages.append((username, text, date))
@@ -49,4 +65,4 @@ def parse_file(filename):
 
 messages = sorted(parse_file("chat.jsonl"), key=lambda t: t[2])
 
-open("messages_dump.tsv", "w+").writelines([msg[0]+"\t"+msg[1]+"\t"+str(msg[2])+"\n" for msg in messages])
+open("messages_dump2.tsv", "w+").writelines([msg[0]+"\t"+msg[1]+"\t"+str(msg[2])+"\n" for msg in messages])

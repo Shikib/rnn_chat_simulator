@@ -19,7 +19,7 @@ messages_file = 'data/messages.tsv'
 # Batch parameters
 batch_size = 64
 context_length = 2
-user_filter = None
+user_filter = "Exiatus"
 
 # Model parameters
 decoder_learning_ratio = 5.0
@@ -53,6 +53,8 @@ encoder = models.Encoder(
   rnn_type='gru',
 )
 
+print("Encoder online")
+
 # Create decoder
 decoder = models.Decoder(
   input_size=input_size,
@@ -64,29 +66,49 @@ decoder = models.Decoder(
   rnn_type='gru',
 )
 
+print("Decoder online")
+
 if constants.USE_CUDA:
   encoder = encoder.cuda()
   decoder = decoder.cuda()
+
+print("Synchronized with graphics unit")
 
 # Create Adam optimizers. Decoder has 5* the learning rate of the encoder.
 encoder_optimizer = torch.optim.Adam(encoder.parameters(), lr=learning_rate)
 decoder_optimizer = torch.optim.Adam(decoder.parameters(), lr=learning_rate * decoder_learning_ratio)
 criterion = nn.CrossEntropyLoss()
 
+print("Optimizers online")
+
 # Logging parameters
 start = time.time()
 print_loss_total = 0
-print_every = 5
-eval_every = 50
+print_every = 10
+eval_every = 25
+
+batches = data.create_batches(numberized_messages, maximum_input_length=128, maximum_output_length=128, user_filter=user_filter)
+print("%d batches created" % len(batches))
+
+def predict_sentence(author, message, strip_tokens=False):
+  msg = (author, "__som__ %s __eom__" % message)
+  numberize = preprocessing.numberize_messages([msg], w2i)[0][1]
+  words = predict.predict(numberize, encoder, decoder, 100)
+  return unparse_sentence(words, strip_tokens)
+
+def unparse_sentence(indices, strip_tokens=False):
+  if not isinstance(indices, list):
+    indices = [i.data[0] for i in indices]
+  return ' '.join([i2w[i] for i in indices if i > constants.EOM or not strip_tokens])
 
 # Training loop.
 for epoch in range(epochs):
   # Get training data for this cycle
   input_batches, input_lengths, target_batches, target_lengths = \
-    data.random_batch(numberized_messages, context_length, batch_size, user_filter=user_filter)
+    data.random_batch(numberized_messages, batches, batch_size)
 
   # Run the train function
-  loss = train.train(
+  loss, results = train.train(
     input_batches, 
     input_lengths, 
     target_batches, 
@@ -97,6 +119,13 @@ for epoch in range(epochs):
     decoder_optimizer, 
     criterion,
   )
+
+  '''
+  print("Input Batch size: {0}".format(str(input_batches.size())))
+  print("Output Batch size: {0}".format(str(target_batches.size())))
+  for i in range(input_batches.size()[1]):
+    print("%s -> %s" % (unparse_sentence(input_batches[:, i]), unparse_sentence(results[:, i])))
+  '''
 
   # Keep track of loss
   print_loss_total += loss
@@ -119,11 +148,12 @@ for epoch in range(epochs):
     print(print_summary)
 
   if epoch % eval_every == 0:
-    msg = ("me", "__som__ yo dude wtf is going on with that guy __eom__")
-    numberize = preprocessing.numberize_messages([msg], w2i)[0][1]
-    words = predict.predict(numberize, encoder, decoder, 100)
-    sentence = ' '.join([i2w[i] for i in words])
-    print("%s -> %s" % (msg, sentence))
+    msg = "yo dude wtf is going on with that guy"
+    print("%s -> %s" % (msg, predict_sentence("me", msg)))
+    msg = "wat u doin"
+    print("%s -> %s" % (msg, predict_sentence("me", msg)))
+    msg = "check out this cool video"
+    print("%s -> %s" % (msg, predict_sentence("me", msg)))
     
 
 import pdb; pdb.set_trace()

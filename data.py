@@ -9,10 +9,43 @@ def pad_seq(seq, max_length):
   """
   Pad sequence to maximum length.
   """
-  seq += [constants.UNK for i in range(max_length - len(seq))]
-  return seq
+  newseq = seq.copy()
+  newseq += [constants.UNK for i in range(max_length - len(seq))]
+  return newseq
 
-def random_batch(all_messages, context_length, batch_size, maximum_length=200, user_filter=None):
+def create_batches(all_messages, maximum_input_length=512, maximum_output_length=256, user_filter=None):
+  batches = []
+  for i in range(100, len(all_messages)):
+    if all_messages[i][0] != user_filter and user_filter is not None:
+      continue
+    if len(all_messages[i][1]) > maximum_output_length:
+      continue
+
+    total_length = 0
+    context_length = 0
+
+    while True:
+      nextmsg = len(all_messages[i - context_length - 1][1])
+      if total_length + nextmsg > maximum_input_length:
+        break
+      total_length += nextmsg
+      context_length += 1
+
+    if context_length == 0:
+      continue
+
+    batches.append((total_length, i, context_length))
+
+    batch = batches[-1]
+    input_seq = []
+    for sender, msg in all_messages[batch[1] - batch[2] : batch[1]]:
+      input_seq = input_seq + msg
+    if len(input_seq) != batch[0]:
+      import pdb; pdb.set_trace()
+  batches.sort(key=lambda x: x[0])
+  return batches
+
+def random_batch(all_messages, batches, batch_size):
   """
   Given all messages, context length, batch size and an optional user filter: return
   a random batch.
@@ -21,23 +54,18 @@ def random_batch(all_messages, context_length, batch_size, maximum_length=200, u
   target_seqs = []
 
   # Choose random pairs
+  start_index = random.randint(0, len(batches) - batch_size)
   for i in range(batch_size):
-    while True:
-      start_index = random.randint(0, len(all_messages) - context_length - 1)
-      if ((user_filter == None or all_messages[start_index + context_length][0] == user_filter) and
-          max([len(msg[1]) for msg in all_messages[start_index:start_index+context_length+1]]) < maximum_length):
-        break
-
-    # Make context by taking a couple of messages before
+    batch = batches[start_index + i]
     input_seq = []
-    for sender, msg in all_messages[start_index:start_index+context_length]:
+    for sender, msg in all_messages[batch[1] - batch[2] : batch[1]]:
       input_seq = input_seq + msg
 
     input_seqs.append(input_seq)
-    target_seqs.append(all_messages[start_index+context_length][1])
+    if len(input_seq) != batch[0]:
+        import pdb; pdb.set_trace()
+    target_seqs.append(all_messages[batch[1]][1])
  
-  import pdb; pdb.set_trace()
-
   # Zip into pairs, sort by length (descending), unzip
   seq_pairs = sorted(zip(input_seqs, target_seqs), key=lambda p: len(p[0]), reverse=True)
   input_seqs, target_seqs = zip(*seq_pairs)
