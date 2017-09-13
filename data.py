@@ -12,7 +12,7 @@ def pad_seq(seq, max_length):
   seq += [constants.UNK for i in range(max_length - len(seq))]
   return seq
 
-def random_batch(all_messages, context_length, batch_size, user_filter=None):
+def random_batch(all_messages, context_length, batch_size, maximum_length=200, user_filter=None):
   """
   Given all messages, context length, batch size and an optional user filter: return
   a random batch.
@@ -23,8 +23,9 @@ def random_batch(all_messages, context_length, batch_size, user_filter=None):
   # Choose random pairs
   for i in range(batch_size):
     while True:
-      start_index = random.randint(0, len(all_messages) - context_length)
-      if user_filter == None or all_messages[start_index + context_length][0] == user_filter:
+      start_index = random.randint(0, len(all_messages) - context_length - 1)
+      if ((user_filter == None or all_messages[start_index + context_length][0] == user_filter) and
+          max([len(msg[1]) for msg in all_messages[start_index:start_index+context_length+1]]) < maximum_length):
         break
 
     # Make context by taking a couple of messages before
@@ -34,6 +35,8 @@ def random_batch(all_messages, context_length, batch_size, user_filter=None):
 
     input_seqs.append(input_seq)
     target_seqs.append(all_messages[start_index+context_length][1])
+ 
+  import pdb; pdb.set_trace()
 
   # Zip into pairs, sort by length (descending), unzip
   seq_pairs = sorted(zip(input_seqs, target_seqs), key=lambda p: len(p[0]), reverse=True)
@@ -70,7 +73,9 @@ def sequence_mask(sequence_length, max_len=None):
 
 
 def masked_cross_entropy(logits, target, length):
-    length = Variable(torch.LongTensor(length)).cuda()
+    length = Variable(torch.LongTensor(length))
+    if constants.USE_CUDA:
+        length = length.cuda()
 
     """
     Args:

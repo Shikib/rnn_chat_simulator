@@ -63,8 +63,12 @@ class Attention(nn.Module):
       attn_energies = attn_energies.cuda()
 
     # Iterate over each batch and each encoder output to construct scores.
-    for i in range(max_len):
-      attn_energies[:,i] = self.score(hidden, encoder_outputs[i])
+    if self.method == 'dot':
+      # (B x 1 x H) * (B x H x S) -> (B x 1 x S)
+      attn_energies = hidden.unsqueeze(1).bmm(encoder_outputs.transpose(0, 1).transpose(1, 2)).squeeze(1)
+    else:
+      for i in range(max_len):
+        attn_energies[:,i] = self.score(hidden, encoder_outputs[i])
 
     # Normalize energies to weights in range 0 to 1, resize to 1 x B x S
     return F.softmax(attn_energies).unsqueeze(1)
@@ -183,8 +187,7 @@ class Decoder(nn.Module):
                                     self.input_size)
 
     # TODO: emperiment with alternate attention methods
-    # Concat is really slow for some reason.
-    self.attn = Attention('concat', hidden_size)
+    self.attn = Attention('dot', hidden_size)
 
     if rnn_type == 'gru':
       self.rnn = nn.GRU(
@@ -213,7 +216,6 @@ class Decoder(nn.Module):
     """
     # Embed last output word
     embedded_word = self.embedding(last_output).view(1, -1, self.input_size)
-     
 
     # Calculate attention weights based on last_hidden 
     attn_weights = self.attn(last_hidden, encoder_outputs)

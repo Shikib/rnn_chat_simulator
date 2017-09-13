@@ -77,7 +77,7 @@ criterion = nn.CrossEntropyLoss()
 start = time.time()
 print_loss_total = 0
 print_every = 5
-eval_every = 100
+eval_every = 50
 
 # Training loop.
 for epoch in range(epochs):
