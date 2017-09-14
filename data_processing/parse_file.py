@@ -30,10 +30,12 @@ def preprocess_sentence2(sentence):
     sentence = sentence.lower()
     sentence = sentence.replace("'", "")
     sentence = sentence.replace('"', "")
-    sentence = re.sub(r'[^\w\s]', ' ', sentence)
-
+    sentence = sentence.replace('?', " __question__ ")
+    sentence = sentence.replace('.', " __period__ ")
+    sentence = sentence.replace(',', " __comma__ ")
     sentence = sentence.replace("\n", " __new__ ")
     sentence = sentence.replace("\t", " __tab__ ")
+    sentence = re.sub(r'[^\w\s]', ' ', sentence)
    
     words = [word for word in word_tokenize(sentence)]
     return "__som__ " + ' '.join(words) + " __eom__"
