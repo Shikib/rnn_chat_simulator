@@ -5,6 +5,7 @@ import data
 import preprocessing
 import torch
 import constants
+import numpy as np
 from torch.autograd import Variable
 
 def predict(sequence, encoder, decoder, max_length):
@@ -46,8 +47,7 @@ def predict(sequence, encoder, decoder, max_length):
                                              encoder_outputs)
     
     # Select top word
-    _, top_word = decoder_output.data.topk(1)
-    word_index = top_word[0][0]
+    word_index = np.random.choice(decoder_output.size()[1], p=torch.nn.functional.softmax(decoder_output.data)[0].data.cpu().numpy())
     decoded_words.append(word_index)
 
     if word_index == constants.EOM:
